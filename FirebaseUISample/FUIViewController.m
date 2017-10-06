@@ -179,6 +179,10 @@ typedef NS_ENUM(NSUInteger, FIRProviders) {
   }
 }
 
+- (void)authUIdidSignInWithDemoAccount:(FUIAuth *)authUI {
+    NSLog(@"Signed in with demo account");
+}
+
 - (void)showAlert:(NSString *)message {
   UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Error"
                                                                  message:message
@@ -297,14 +301,19 @@ typedef NS_ENUM(NSUInteger, FIRProviders) {
           [_authProviders addObject:[[FUITwitterAuth alloc] init]];
           break;
         case kIDPPhone:
-          [_authProviders addObject:[[FUIPhoneAuth alloc] initWithAuthUI:self.authUIMock]];
+          [_authProviders addObject:[self generatePhoneAuth]];
           break;
-
         default:
           break;
       }
     }
   }
+}
+
+- (FUIPhoneAuth *)generatePhoneAuth {
+    FUIPhoneAuth *phoneAuth = [[FUIPhoneAuth alloc] initWithAuthUI:self.authUIMock];
+    phoneAuth.demoPhoneNumber = @"+15555555555";
+    return phoneAuth;
 }
 
 - (BOOL)isEmailEnabled {

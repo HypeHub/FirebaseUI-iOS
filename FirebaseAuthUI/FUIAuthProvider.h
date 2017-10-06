@@ -136,6 +136,12 @@ __attribute__((deprecated("This is deprecated API and will be removed in a futur
  */
 - (BOOL)handleOpenURL:(NSURL *)URL sourceApplication:(nullable NSString *)sourceApplication;
 
+/** @property demoPhoneNumber
+ @brief Demo phone number
+ */
+@property (nonatomic, readwrite, copy, nullable) NSString *demoPhoneNumber;
+
+
 @end
 
 NS_ASSUME_NONNULL_END

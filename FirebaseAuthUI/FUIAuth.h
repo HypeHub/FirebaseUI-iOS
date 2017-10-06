@@ -53,7 +53,16 @@ typedef void (^FUIAuthResultCallback)(FIRUser *_Nullable user, NSError *_Nullabl
     didSignInWithUser:(nullable FIRUser *)user
                 error:(nullable NSError *)error;
 
+
 @optional
+
+
+/** @fn authUIdidSignInWithDemoAccount:
+ @brief Message sent after the sign in process has detected a demo account being used.
+ @param authUI The @c FUIAuth instance sending the message.
+ */
+- (void)authUIdidSignInWithDemoAccount:(FUIAuth *)authUI;
+
 
 /** @fn authUI:didFinishOperation:error:
     @brief Message sent after finishing Account Management operation.

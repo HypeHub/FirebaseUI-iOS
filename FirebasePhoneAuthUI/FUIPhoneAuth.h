@@ -23,6 +23,11 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @interface FUIPhoneAuth : NSObject <FUIAuthProvider>
 
+/** @property app
+ @brief A supplied phone number that will trigger the demo account callback.
+ */
+@property (nonatomic, readwrite, copy, nullable) NSString *demoPhoneNumber;
+
 /** @fn init
     @brief Please use @c initWithAuthUI: .
  */

@@ -165,6 +165,19 @@ static NSString *const kNextButtonAccessibilityID = @"NextButtonAccessibilityID"
   FIRPhoneAuthProvider *provider = [FIRPhoneAuthProvider providerWithAuth:self.auth];
   NSString *phoneNumberWithCountryCode =
       [NSString stringWithFormat:@"+%@%@", _selectedCountryCode.dialCode, phoneNumber];
+    
+    for (id<FUIAuthProvider> provider in self.authUI.providers) {
+        if ([provider isKindOfClass:[FUIPhoneAuth class]]) {
+            FUIPhoneAuth *phoneAuth = provider;
+            if (phoneAuth.demoPhoneNumber && [phoneAuth.demoPhoneNumber isEqualToString:phoneNumberWithCountryCode]) {
+                BOOL respondedToDemoAccount = [self onDemoAccount];
+                if (respondedToDemoAccount) {
+                    return;
+                }
+            }
+        }
+    }
+    
   [provider verifyPhoneNumber:phoneNumberWithCountryCode
                    UIDelegate:self
                    completion:^(NSString *_Nullable verificationID, NSError *_Nullable error) {
@@ -195,6 +208,16 @@ static NSString *const kNextButtonAccessibilityID = @"NextButtonAccessibilityID"
 
 - (void)onBack {
   [super onBack];
+}
+
+- (BOOL)onDemoAccount {
+    if ([self.authUI.delegate respondsToSelector:@selector(authUIdidSignInWithDemoAccount:)]) {
+        [self decrementActivity];
+        [self.navigationController dismissViewControllerAnimated:YES completion:nil];
+        [self.authUI.delegate authUIdidSignInWithDemoAccount:self.authUI];
+        return YES;
+    }
+    return NO;
 }
 
 - (void)textFieldDidChange {
