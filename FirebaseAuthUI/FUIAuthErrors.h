@@ -14,7 +14,6 @@
 //  limitations under the License.
 //
 
-@import Foundation;
 
 NS_ASSUME_NONNULL_BEGIN
 
