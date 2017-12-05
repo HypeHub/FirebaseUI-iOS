@@ -105,14 +105,6 @@ static NSString *const kLinkPlaceholderPattern = @"\\[([^\\]]+)\\]";
 
 - (void)viewWillAppear:(BOOL)animated {
   [super viewWillAppear:animated];
-
-  if (self.navigationController.viewControllers.firstObject == self) {
-    UIBarButtonItem *cancelBarButton =
-        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
-                                                      target:self
-                                                      action:@selector(cancelAuthorization)];
-    self.navigationItem.leftBarButtonItem = cancelBarButton;
-  }
   [self registerForKeyboardNotifications];
 }
 
@@ -138,25 +130,33 @@ static NSString *const kLinkPlaceholderPattern = @"\\[([^\\]]+)\\]";
   [provider verifyPhoneNumber:_phoneNumber
                    UIDelegate:self
                    completion:^(NSString *_Nullable verificationID, NSError *_Nullable error) {
+    // Temporary fix to guarantee execution of the completion block on the main thread.
+    // TODO: Remove temporary workaround when the issue is fixed in FirebaseAuth.
+    dispatch_block_t completionBlock = ^() {
+      [self decrementActivity];
+      _verificationID = verificationID;
+      [_codeField becomeFirstResponder];
 
-    [self decrementActivity];
-    _verificationID = verificationID;
-    [_codeField becomeFirstResponder];
+      if (error) {
+        UIAlertController *alertController = [FUIPhoneAuth alertControllerForError:error
+                                                                     actionHandler:^{
+                                               [_codeField clearCodeInput];
+                                               [_codeField becomeFirstResponder];
+                                             }];
+        [self presentViewController:alertController animated:YES completion:nil];
+        return;
+      }
 
-    if (error) {
-      UIAlertController *alertController = [FUIPhoneAuth alertControllerForError:error
-                                                                   actionHandler:^{
-                                             [_codeField clearCodeInput];
-                                             [_codeField becomeFirstResponder];
-                                           }];
-      [self presentViewController:alertController animated:YES completion:nil];
-      return;
+      NSString *resultMessage =
+          [NSString stringWithFormat:FUIPhoneAuthLocalizedString(kPAStr_ResendCodeResult),
+              _phoneNumber];
+      [self showAlertWithMessage:resultMessage];
+    };
+    if ([NSThread isMainThread]) {
+      completionBlock();
+    } else {
+      dispatch_async(dispatch_get_main_queue(), completionBlock);
     }
-
-    NSString *resultMessage =
-        [NSString stringWithFormat:FUIPhoneAuthLocalizedString(kPAStr_ResendCodeResult),
-            _phoneNumber];
-    [self showAlertWithMessage:resultMessage];
   }];
 }
 - (IBAction)onPhoneNumberSelected:(id)sender {
@@ -266,7 +266,7 @@ static NSString *const kLinkPlaceholderPattern = @"\\[([^\\]]+)\\]";
 }
 
 - (void)updateResendLabel {
-  NSInteger minutes = _resendConfirmationCodeSeconds / 60; // Integer type for truncation
+  NSInteger minutes = (NSInteger)_resendConfirmationCodeSeconds / 60; // Integer type for truncation
   NSInteger seconds = (NSInteger)round(_resendConfirmationCodeSeconds) % 60;
   NSString *formattedTime = [NSString stringWithFormat:@"%ld:%02ld", minutes, seconds];
 

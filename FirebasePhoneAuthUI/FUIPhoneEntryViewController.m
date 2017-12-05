@@ -19,6 +19,7 @@
 #import <FirebaseAuth/FirebaseAuth.h>
 #import <FirebaseAuth/FIRAuthUIDelegate.h>
 #import <FirebaseAuth/FIRPhoneAuthProvider.h>
+#import "FUIAuthStrings.h"
 #import "FUIAuthTableViewCell.h"
 #import "FUIAuthUtils.h"
 #import "FUIAuth_Internal.h"
@@ -144,6 +145,11 @@ static NSString *const kNextButtonAccessibilityID = @"NextButtonAccessibilityID"
                                                       target:self
                                                       action:@selector(cancelAuthorization)];
     self.navigationItem.leftBarButtonItem = cancelBarButton;
+    self.navigationItem.backBarButtonItem =
+        [[UIBarButtonItem alloc] initWithTitle:FUILocalizedString(kStr_Back)
+                                         style:UIBarButtonItemStylePlain
+                                        target:nil
+                                        action:nil];
   }
 }
 
@@ -181,28 +187,36 @@ static NSString *const kNextButtonAccessibilityID = @"NextButtonAccessibilityID"
   [provider verifyPhoneNumber:phoneNumberWithCountryCode
                    UIDelegate:self
                    completion:^(NSString *_Nullable verificationID, NSError *_Nullable error) {
+    // Temporary fix to guarantee execution of the completion block on the main thread.
+    // TODO: Remove temporary workaround when the issue is fixed in FirebaseAuth.
+    dispatch_block_t completionBlock = ^() {
+      [self decrementActivity];
+      self.navigationItem.rightBarButtonItem.enabled = YES;
 
-    [self decrementActivity];
-    self.navigationItem.rightBarButtonItem.enabled = YES;
+      if (error) {
+        [_phoneNumberField becomeFirstResponder];
 
-    if (error) {
-      [_phoneNumberField becomeFirstResponder];
+        UIAlertController *alertController = [FUIPhoneAuth alertControllerForError:error
+                                                                     actionHandler:nil];
+        [self presentViewController:alertController animated:YES completion:nil];
+        
+        FUIPhoneAuth *delegate = [self.authUI providerWithID:FIRPhoneAuthProviderID];
+        [delegate callbackWithCredential:nil error:error result:nil];
+        return;
+      }
 
-      UIAlertController *alertController = [FUIPhoneAuth alertControllerForError:error
-                                                                   actionHandler:nil];
-      [self presentViewController:alertController animated:YES completion:nil];
-      
-      FUIPhoneAuth *delegate = [self.authUI providerWithID:FIRPhoneAuthProviderID];
-      [delegate callbackWithCredential:nil error:error result:nil];
-      return;
+      UIViewController *controller =
+          [[FUIPhoneVerificationViewController alloc] initWithAuthUI:self.authUI
+                                                      verificationID:verificationID
+                                                         phoneNumber:phoneNumberWithCountryCode];
+
+      [self pushViewController:controller];
+    };
+    if ([NSThread isMainThread]) {
+      completionBlock();
+    } else {
+      dispatch_async(dispatch_get_main_queue(), completionBlock);
     }
-
-    UIViewController *controller =
-        [[FUIPhoneVerificationViewController alloc] initWithAuthUI:self.authUI
-                                                    verificationID:verificationID
-                                                       phoneNumber:phoneNumberWithCountryCode];
-
-    [self pushViewController:controller];
   }];
 }
 
@@ -266,6 +280,8 @@ static NSString *const kNextButtonAccessibilityID = @"NextButtonAccessibilityID"
     [_phoneNumberField becomeFirstResponder];
     if (_phoneNumber) {
       _phoneNumberField.text = _phoneNumber.rawPhoneNumber;
+    } else {
+      _phoneNumberField.text = nil;
     }
     [cell.textField addTarget:self
                        action:@selector(textFieldDidChange)

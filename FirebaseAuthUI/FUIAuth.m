@@ -18,7 +18,7 @@
 
 #import <objc/runtime.h>
 
-#import <FirebaseAnalytics/FIRApp.h>
+#import <FirebaseCore/FIRApp.h>
 #import <FirebaseAuth/FIRAuth.h>
 #import <FirebaseAuth/FirebaseAuth.h>
 #import "FUIAuthBaseViewController_Internal.h"
@@ -43,6 +43,23 @@ static const char kAuthAssociationKey;
     @brief The key for the email address in the userInfo dictionary of a sign in error.
  */
 static NSString *const kErrorUserInfoEmailKey = @"FIRAuthErrorUserInfoEmailKey";
+
+/** @var kFirebaseAuthUIFrameworkMarker
+    @brief The marker in the HTTP header that indicates the presence of Firebase Auth UI.
+ */
+static NSString *const kFirebaseAuthUIFrameworkMarker = @"FirebaseUI-iOS";
+
+/** @category FIRAuth(InternalInterface)
+    @brief Redeclares the internal interface not publicly exposed in FIRAuth.
+ */
+@interface FIRAuth (InternalInterface)
+
+/** @property additionalFrameworkMarker
+    @brief Additional framework marker that will be added as part of the header of every request.
+ */
+@property(nonatomic, copy, nullable) NSString *additionalFrameworkMarker;
+
+@end
 
 @interface FUIAuth ()
 
@@ -72,6 +89,13 @@ static NSString *const kErrorUserInfoEmailKey = @"FIRAuthErrorUserInfoEmailKey";
       authUI = [[FUIAuth alloc] initWithAuth:auth];
       objc_setAssociatedObject(auth, &kAuthAssociationKey, authUI,
           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      if ([auth respondsToSelector:@selector(setAdditionalFrameworkMarker:)]) {
+        auth.additionalFrameworkMarker = kFirebaseAuthUIFrameworkMarker;
+      }
+      // Update auth with the actual language used in the app.
+      // If localization is not provided by developer, the first localization available,
+      // ordered by the user's preferred order, is used.
+      auth.languageCode = [NSBundle mainBundle].preferredLocalizations.firstObject;
     }
     return authUI;
   }
@@ -138,9 +162,10 @@ static NSString *const kErrorUserInfoEmailKey = @"FIRAuthErrorUserInfoEmailKey";
                    completion:^(FIRAuthCredential *_Nullable credential,
                                 NSError *_Nullable error,
                                 _Nullable FIRAuthResultCallback result) {
+    BOOL isAuthPickerShown =
+        [presentingViewController isKindOfClass:[FUIAuthPickerViewController class]];
     if (error) {
-      if (![presentingViewController isKindOfClass:[FUIAuthPickerViewController class]]
-              || error.code != FUIAuthErrorCodeUserCancelledSignIn) {
+      if (!isAuthPickerShown || error.code != FUIAuthErrorCodeUserCancelledSignIn) {
         [self invokeResultCallbackWithUser:nil error:error];
       }
       if (result) {
@@ -167,7 +192,8 @@ static NSString *const kErrorUserInfoEmailKey = @"FIRAuthErrorUserInfoEmailKey";
       if (error) {
         [self invokeResultCallbackWithUser:user error:error];
       } else {
-        if (presentingViewController.presentingViewController) {
+        // Hide Auth Picker Controller which was presented modally.
+        if (isAuthPickerShown && presentingViewController.presentingViewController) {
           [presentingViewController dismissViewControllerAnimated:YES completion:^{
             [self invokeResultCallbackWithUser:user error:error];
           }];
